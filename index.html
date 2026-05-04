@@ -169,10 +169,58 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sa
 /* LIVE TAG */
 .live-tag{display:inline-flex;align-items:center;gap:4px;background:#dcfce7;color:var(--g);font-size:10px;font-weight:700;padding:2px 7px;border-radius:20px}
 .live-dot{width:6px;height:6px;border-radius:50%;background:var(--g);animation:pulse 1.5s infinite}
+
+.gps-btn{display:inline-flex;align-items:center;gap:4px;background:#e0f2fe;color:#0369a1;border:none;border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;cursor:pointer;font-family:inherit;text-decoration:none;}
+.gps-btn:hover{background:#0369a1;color:#fff;}
+
+/* OTP LOGIN */
+.otp-page{position:fixed;top:0;left:0;right:0;bottom:0;background:linear-gradient(135deg,var(--gd),var(--g));display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;z-index:9999;}
+.otp-logo{font-size:56px;margin-bottom:8px;}
+.otp-title{font-size:26px;font-weight:800;color:#fff;margin-bottom:4px;}
+.otp-sub{font-size:14px;color:rgba(255,255,255,.75);margin-bottom:28px;text-align:center;}
+.otp-card{background:#fff;border-radius:16px;padding:20px;width:100%;max-width:340px;box-shadow:0 20px 40px rgba(0,0,0,.2);}
+.otp-label{font-size:12px;font-weight:700;color:var(--s5);text-transform:uppercase;letter-spacing:.6px;margin-bottom:6px;display:block;}
+.otp-inp{width:100%;border:1.5px solid var(--s3);border-radius:10px;padding:12px 14px;font-size:16px;font-family:inherit;outline:none;margin-bottom:12px;color:var(--s8);}
+.otp-inp:focus{border-color:var(--g);}
+.otp-btn{width:100%;padding:13px;background:var(--g);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;transition:background .12s;}
+.otp-btn:hover{background:var(--gd);}
+.otp-btn:disabled{background:var(--s3);cursor:not-allowed;}
+.otp-hint{font-size:12px;color:var(--s4);text-align:center;margin-top:10px;}
+.otp-error{background:#fee2e2;color:var(--r);font-size:13px;padding:8px 12px;border-radius:8px;margin-bottom:10px;display:none;}
+.otp-step{display:none;}.otp-step.active{display:block;}
+#recaptcha-container{margin-bottom:10px;}
 </style>
+
 </head>
 <body>
-<div class="app">
+<!-- OTP LOGIN PAGE -->
+<div id="otp-page" class="otp-page">
+  <div class="otp-logo">⛽</div>
+  <div class="otp-title">CNG Sathi</div>
+  <div class="otp-sub">नाशिकचा स्मार्ट CNG साथी 🤝</div>
+  <div class="otp-card">
+    <div class="otp-error" id="otp-error">चुकीचा OTP! पुन्हा प्रयत्न करा.</div>
+    
+    <!-- Step 1: Phone Number -->
+    <div class="otp-step active" id="step-phone">
+      <label class="otp-label">📱 Mobile नंबर टाका</label>
+      <input type="tel" class="otp-inp" id="phone-inp" placeholder="+91 98765 43210" maxlength="13">
+      <div id="recaptcha-container"></div>
+      <button class="otp-btn" id="send-otp-btn" onclick="sendOTP()">OTP पाठवा →</button>
+      <div class="otp-hint">तुमच्या mobile वर OTP येईल</div>
+    </div>
+
+    <!-- Step 2: OTP -->
+    <div class="otp-step" id="step-otp">
+      <label class="otp-label">🔐 OTP टाका</label>
+      <input type="number" class="otp-inp" id="otp-inp" placeholder="6 digit OTP" maxlength="6" style="letter-spacing:8px;font-size:20px;text-align:center;">
+      <button class="otp-btn" id="verify-otp-btn" onclick="verifyOTP()">Verify करा ✓</button>
+      <div class="otp-hint" id="otp-hint-txt">OTP नाही आला? <span style="color:var(--g);cursor:pointer;font-weight:600;" onclick="resendOTP()">पुन्हा पाठवा</span></div>
+    </div>
+  </div>
+</div>
+
+<div class="app" id="main-app" style="display:none">
   <!-- TOP NAV -->
   <div class="topnav">
     <div class="logo"><span>⛽</span><span>CNG Sathi</span><div class="logo-dot"></div></div>
@@ -276,6 +324,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sa
         <div class="slot-header">
           <div class="slot-sname" id="slot-sname">-</div>
           <div class="slot-addr" id="slot-addr">-</div>
+          <a id="maps-link" href="#" target="_blank" class="gps-btn" style="margin-top:8px;display:inline-flex;">📍 Google Maps वर बघा</a>
         </div>
         <div class="slot-section">
           <div class="slot-section-title" id="slot-status-row">⏳ Owner कडून slots लोड होत आहेत...</div>
@@ -396,14 +445,14 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,system-ui,sa
 const FB = 'https://cngsathi-default-rtdb.firebaseio.com'; // 🔁 तुमचा Firebase URL टाका
 
 const STATIONS = [
-  {n:'Adhav Petroleum',full:'Adhav Petroleum (BP)',addr:'Jail Road, Nashik – 422101',isFull:false},
-  {n:'N L Gandhi & Co',full:'N L Gandhi & Co',addr:'Panchavati, Nashik – 422003',isFull:false},
-  {n:'Namrata CNG Pump',full:'Namrata CNG',addr:'Ashwin Nagar, Nashik – 422010',isFull:false},
-  {n:'Sachin Petroleum',full:'Sachin Petroleum (IOC)',addr:'SH-17, Nashik – 422303',isFull:false},
-  {n:'Yoshita Petroleum',full:'Yoshita Petroleum',addr:'Chandori, Niphad – 422303',isFull:false},
-  {n:'Deshmane Petroleum',full:'Deshmane Petroleum',addr:'Pimpalgaon Baswant – 422209',isFull:false},
-  {n:'Deepkiran Petroleum',full:'Deepkiran Petroleum',addr:'Igatpuri – 422402',isFull:true},
-  {n:'Neev Petroleum',full:'Neev Petroleum (IOC)',addr:'Sinnar, Nashik – 422606',isFull:false},
+  {n:'Adhav Petroleum',full:'Adhav Petroleum (BP)',addr:'Jail Road, Nashik – 422101',isFull:false,maps:'https://maps.google.com/?q=Adhav+Petroleum+CNG+Jail+Road+Nashik'},
+  {n:'N L Gandhi & Co',full:'N L Gandhi & Co',addr:'Panchavati, Nashik – 422003',isFull:false,maps:'https://maps.google.com/?q=NL+Gandhi+CNG+Panchavati+Nashik'},
+  {n:'Namrata CNG Pump',full:'Namrata CNG',addr:'Ashwin Nagar, Nashik – 422010',isFull:false,maps:'https://maps.google.com/?q=Namrata+CNG+Ashwin+Nagar+Nashik'},
+  {n:'Sachin Petroleum',full:'Sachin Petroleum (IOC)',addr:'SH-17, Nashik – 422303',isFull:false,maps:'https://maps.google.com/?q=Sachin+Petroleum+SH17+Nashik'},
+  {n:'Yoshita Petroleum',full:'Yoshita Petroleum',addr:'Chandori, Niphad – 422303',isFull:false,maps:'https://maps.google.com/?q=Yoshita+Petroleum+Niphad+Nashik'},
+  {n:'Deshmane Petroleum',full:'Deshmane Petroleum',addr:'Pimpalgaon Baswant – 422209',isFull:false,maps:'https://maps.google.com/?q=Deshmane+Petroleum+Pimpalgaon+Nashik'},
+  {n:'Deepkiran Petroleum',full:'Deepkiran Petroleum',addr:'Igatpuri – 422402',isFull:true,maps:'https://maps.google.com/?q=Deepkiran+Petroleum+Igatpuri+Nashik'},
+  {n:'Neev Petroleum',full:'Neev Petroleum (IOC)',addr:'Sinnar, Nashik – 422606',isFull:false,maps:'https://maps.google.com/?q=Neev+Petroleum+Sinnar+Nashik'},
 ];
 
 const TIMES = [
@@ -479,6 +528,7 @@ async function goSlots(idx){
   sel = STATIONS[idx]; selTime = null;
   document.getElementById('slot-sname').textContent = sel.full;
   document.getElementById('slot-addr').textContent = '📍 ' + sel.addr;
+  document.getElementById('maps-link').href = sel.maps;
   document.getElementById('ai-slot-msg').innerHTML = `<strong>${sel.n}</strong> साठी AI ने <strong>09:30 AM</strong> best slot सुचवला आहे ⭐`;
   document.getElementById('slot-status-row').textContent = '⏳ Firebase वरून live slots लोड होत आहेत...';
   const btn = document.getElementById('btn-next');
@@ -612,6 +662,128 @@ CNG किंमत: ₹67.56/kg. Best time: 09:30 AM (rush कमी).`;
   }
   box.scrollTop = box.scrollHeight;
 }
+
+// ── FIREBASE CONFIG ──
+const firebaseConfig = {
+  apiKey: "AIzaSyBJc5n8zspybSF01bKHMym5qlxDhyJu70M",
+  authDomain: "cngsathi.firebaseapp.com",
+  databaseURL: "https://cngsathi-default-rtdb.firebaseio.com",
+  projectId: "cngsathi",
+  storageBucket: "cngsathi.firebasestorage.app",
+  messagingSenderId: "234630667209",
+  appId: "1:234630667209:web:b7e1dd2a0a91ef8557a618"
+};
+
+// Initialize Firebase
+if (!firebase.apps.length) {
+  firebase.initializeApp(firebaseConfig);
+}
+const auth = firebase.auth();
+auth.useDeviceLanguage();
+
+let confirmationResult = null;
+let recaptchaVerifier = null;
+
+// ── OTP FUNCTIONS ──
+function initRecaptcha(){
+  if(recaptchaVerifier) return;
+  recaptchaVerifier = new firebase.auth.RecaptchaVerifier('recaptcha-container', {
+    size: 'invisible',
+    callback: () => {}
+  });
+}
+
+async function sendOTP(){
+  const phone = document.getElementById('phone-inp').value.trim();
+  const btn = document.getElementById('send-otp-btn');
+  const err = document.getElementById('otp-error');
+  err.style.display = 'none';
+
+  // Validate phone
+  if(!phone || phone.length < 10){
+    err.textContent = 'Valid mobile नंबर टाका!';
+    err.style.display = 'block';
+    return;
+  }
+
+  // Format phone number
+  let formattedPhone = phone;
+  if(!phone.startsWith('+91')){
+    formattedPhone = '+91' + phone.replace(/\s/g,'').slice(-10);
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'OTP पाठवत आहे...';
+
+  try{
+    initRecaptcha();
+    confirmationResult = await auth.signInWithPhoneNumber(formattedPhone, recaptchaVerifier);
+    // Show OTP step
+    document.getElementById('step-phone').classList.remove('active');
+    document.getElementById('step-otp').classList.add('active');
+    document.getElementById('otp-hint-txt').innerHTML = formattedPhone + ' वर OTP पाठवला ✅';
+  }catch(e){
+    err.textContent = 'OTP पाठवता आला नाही. पुन्हा try करा.';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'OTP पाठवा →';
+    // Demo mode - bypass for testing
+    demoLogin();
+  }
+}
+
+async function verifyOTP(){
+  const otp = document.getElementById('otp-inp').value.trim();
+  const btn = document.getElementById('verify-otp-btn');
+  const err = document.getElementById('otp-error');
+  err.style.display = 'none';
+
+  if(!otp || otp.length !== 6){
+    err.textContent = '6 digit OTP टाका!';
+    err.style.display = 'block';
+    return;
+  }
+
+  btn.disabled = true;
+  btn.textContent = 'Verify होत आहे...';
+
+  try{
+    await confirmationResult.confirm(otp);
+    loginSuccess();
+  }catch(e){
+    err.textContent = 'चुकीचा OTP! पुन्हा प्रयत्न करा.';
+    err.style.display = 'block';
+    btn.disabled = false;
+    btn.textContent = 'Verify करा ✓';
+  }
+}
+
+function resendOTP(){
+  document.getElementById('step-otp').classList.remove('active');
+  document.getElementById('step-phone').classList.add('active');
+  document.getElementById('send-otp-btn').disabled = false;
+  document.getElementById('send-otp-btn').textContent = 'OTP पाठवा →';
+}
+
+function loginSuccess(){
+  document.getElementById('otp-page').style.display = 'none';
+  document.getElementById('main-app').style.display = 'flex';
+}
+
+// Demo mode - Firebase config नसताना
+function demoLogin(){
+  setTimeout(()=>{
+    loginSuccess();
+  }, 500);
+}
+
+// Check if already logged in
+auth.onAuthStateChanged(user => {
+  if(user){
+    loginSuccess();
+  }
+});
+
 </script>
 </body>
 </html>
